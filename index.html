@@ -1,352 +1,2152 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="format-detection" content="telephone=no">
-  <title>Acertijo Misterioso</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Miami Explorer Quiz</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
   <style>
+    :root {
+      --bg: #07111f;
+      --text: #f7fbff;
+      --muted: #b7c7d8;
+      --accent: #00e0ff;
+      --accent-2: #ff4fd8;
+      --good: #43e89b;
+      --bad: #ff6b6b;
+      --warning: #ffd166;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+      --radius: 28px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
-      font-family: "Georgia", serif;
-      background: linear-gradient(to bottom, #1a1a1a, #000);
-      color: #f5deb3;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(0, 224, 255, 0.32), transparent 32%),
+        radial-gradient(circle at top right, rgba(255, 79, 216, 0.28), transparent 34%),
+        linear-gradient(135deg, #07111f 0%, #0e1b33 45%, #12081e 100%);
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: linear-gradient(to bottom, black, transparent 85%);
+    }
+
+    .app {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 34px 0 60px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.08fr 0.92fr;
+      gap: 24px;
+      align-items: stretch;
+      margin-bottom: 26px;
+    }
+
+    .hero-card,
+    .panel,
+    .place-card,
+    .quiz-card,
+    .map-card,
+    .plan-card,
+    .fact-card {
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.08));
+      backdrop-filter: blur(18px);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .hero-card {
+      padding: 34px;
+      min-height: 420px;
       display: flex;
       flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-card::after {
+      content: "MIAMI";
+      position: absolute;
+      right: -24px;
+      bottom: -36px;
+      font-weight: 950;
+      font-size: clamp(5rem, 15vw, 11rem);
+      letter-spacing: -0.09em;
+      color: rgba(255, 255, 255, 0.055);
+      pointer-events: none;
+    }
+
+    .badge {
+      width: fit-content;
+      display: inline-flex;
+      gap: 8px;
       align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
+      padding: 9px 13px;
+      border-radius: 999px;
+      color: #06101d;
+      font-weight: 800;
+      font-size: 0.78rem;
+      background: linear-gradient(135deg, var(--accent), #baffff);
+      box-shadow: 0 8px 28px rgba(0, 224, 255, 0.18);
+    }
+
+    h1 {
+      margin-top: 20px;
+      font-size: clamp(2.3rem, 5vw, 5rem);
+      line-height: 0.92;
+      letter-spacing: -0.07em;
+      max-width: 740px;
+    }
+
+    .hero p {
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.65;
+      max-width: 680px;
+      margin-top: 18px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 28px;
+      position: relative;
+      z-index: 2;
+    }
+
+    button {
+      border: 0;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 999px;
+      padding: 13px 18px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 0.18s ease, background 0.18s ease, border 0.18s ease;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    .primary {
+      background: linear-gradient(135deg, var(--accent-2), var(--accent));
+      color: white;
+      border: none;
+      box-shadow: 0 14px 34px rgba(255, 79, 216, 0.22);
+    }
+
+    .floating-home {
+      position: fixed;
+      right: 14px;
+      bottom: 14px;
+      z-index: 9000;
+      width: auto;
+      min-height: 44px;
+      padding: 12px 15px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--accent-2), var(--accent));
+      color: white;
+      box-shadow: 0 14px 34px rgba(0,0,0,0.34);
+      border: 1px solid rgba(255,255,255,0.22);
+    }
+
+    .photo-panel {
+      min-height: 420px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .photo-panel img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      filter: saturate(1.12) contrast(1.03);
+    }
+
+    .photo-caption {
+      position: absolute;
+      left: 20px;
+      right: 20px;
+      bottom: 20px;
+      padding: 18px;
+      border-radius: 22px;
+      background: rgba(7, 17, 31, 0.68);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,0.14);
+    }
+
+    .photo-caption strong {
+      display: block;
+      font-size: 1.1rem;
+      margin-bottom: 4px;
+    }
+
+    .photo-caption span {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 14px;
+      margin: 34px 0 16px;
+    }
+
+    .section-title h2 {
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      letter-spacing: -0.04em;
+    }
+
+    .section-title p {
+      color: var(--muted);
+      max-width: 740px;
+      line-height: 1.55;
+      font-size: 0.95rem;
+    }
+
+    .hidden-section {
+      display: none;
+    }
+
+    .hidden-section.show-section {
+      display: block;
+    }
+
+    .filters {
+      display: flex;
+      gap: 10px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      scrollbar-width: none;
+    }
+
+    .filters::-webkit-scrollbar {
+      display: none;
+    }
+
+    .filter {
+      min-width: max-content;
+    }
+
+    .filter.active {
+      color: #05101d;
+      background: var(--accent);
+      border-color: transparent;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+
+    .place-card {
+      overflow: hidden;
+      transform: translateY(0);
+      transition: transform .22s ease, border .22s ease, background .22s ease;
+    }
+
+    .place-card:hover {
+      transform: translateY(-6px);
+      border-color: rgba(0, 224, 255, 0.4);
+      background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08));
+    }
+
+    .place-image {
+      height: 190px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .place-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform .4s ease;
+      position: relative;
+      z-index: 2;
+    }
+
+    .image-fallback {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      text-align: center;
+      background:
+        radial-gradient(circle at top left, rgba(0,224,255,0.45), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(255,79,216,0.42), transparent 38%),
+        linear-gradient(135deg, #102139, #2b1232);
+      color: white;
+      font-weight: 950;
+      font-size: 1.05rem;
+      line-height: 1.25;
+      letter-spacing: -0.03em;
+      z-index: 1;
+    }
+
+    .place-image img.failed {
+      opacity: 0;
+    }
+
+    .place-card:hover .place-image img {
+      transform: scale(1.06);
+    }
+
+    .tag {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 900;
+      color: #06101d;
+      background: rgba(255,255,255,0.86);
+      z-index: 3;
+    }
+
+    .place-content {
       padding: 20px;
+    }
+
+    .place-content h3 {
+      font-size: 1.25rem;
+      margin-bottom: 9px;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+    }
+
+    .place-content p {
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 0.94rem;
+      margin-bottom: 15px;
+    }
+
+    .quick-facts {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .quick-facts div {
+      padding: 10px 12px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.08);
+      color: #dbe8f5;
+      font-size: 0.87rem;
+      line-height: 1.4;
+    }
+
+    .learn-line {
+      padding: 13px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(0,224,255,0.16), rgba(255,79,216,0.14));
+      color: #eef9ff;
+      font-size: 0.9rem;
+      line-height: 1.45;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .facts-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .fact-card {
+      padding: 16px;
+      border-radius: 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .fact-icon {
+      flex: 0 0 auto;
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      font-weight: 900;
+      color: #fff;
+    }
+
+    .fact-card p {
+      color: #e8f5ff;
+      line-height: 1.45;
+      font-size: 0.95rem;
+    }
+
+    .map-card {
+      padding: 18px;
+    }
+
+    #floridaMap {
+      width: 100%;
+      height: 460px;
+      border-radius: 24px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.14);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+    }
+
+    .leaflet-container {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0e1b33;
+    }
+
+    .leaflet-popup-content-wrapper {
+      border-radius: 16px;
+      background: #07111f;
+      color: #f7fbff;
+      box-shadow: 0 18px 45px rgba(0,0,0,0.32);
+      border: 1px solid rgba(255,255,255,0.16);
+    }
+
+    .leaflet-popup-tip {
+      background: #07111f;
+    }
+
+    .leaflet-popup-content {
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .leaflet-popup-content b {
+      color: #ffffff;
+      font-size: 1rem;
+    }
+
+    .map-legend {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .legend-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .legend-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #e8f5ff;
+      font-size: 0.88rem;
+      line-height: 1.2;
+    }
+
+    .legend-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 999px;
+      display: inline-block;
+      flex: 0 0 auto;
+    }
+
+    .legend-dot.red { background: #ff5f5f; }
+    .legend-dot.blue { background: var(--accent); }
+    .legend-dot.pink { background: var(--accent-2); }
+
+    .map-note {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+
+    .custom-pin {
+      width: 28px;
+      height: 28px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.35);
+      border: 2px solid rgba(255,255,255,0.85);
+    }
+
+    .custom-pin::after {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: #fff;
+      display: block;
+    }
+
+    .custom-pin.blue { background: var(--accent); }
+    .custom-pin.pink { background: var(--accent-2); }
+    .custom-pin.red { background: #ff5f5f; }
+
+    .popup-gallery-link {
+      display: inline-block;
+      margin-top: 8px;
+      color: #00e0ff;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .popup-gallery-link:hover {
+      text-decoration: underline;
+    }
+
+    .image-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(10px);
+    }
+
+    .image-modal-card {
+      width: min(920px, 100%);
+      max-height: 92vh;
+      overflow: hidden;
+      border-radius: 26px;
+      background:
+        radial-gradient(circle at top left, rgba(0,224,255,0.18), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(255,79,216,0.18), transparent 38%),
+        #07111f;
+      border: 1px solid rgba(255,255,255,0.18);
+      box-shadow: 0 30px 90px rgba(0,0,0,0.45);
+    }
+
+    .image-modal-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 16px 12px;
+    }
+
+    .image-modal-top h3 {
+      font-size: 1.1rem;
+      line-height: 1.2;
+    }
+
+    .image-close {
+      width: 42px;
+      height: 42px;
+      padding: 0;
+      border-radius: 999px;
+      font-size: 1.4rem;
+      line-height: 1;
+    }
+
+    .image-frame {
+      position: relative;
+      height: min(62vh, 520px);
+      margin: 0 16px;
+      border-radius: 22px;
+      overflow: hidden;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(255,255,255,0.12);
+      display: grid;
+      place-items: center;
+    }
+
+    .image-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: none;
+      background: rgba(0,0,0,0.35);
+    }
+
+    .image-frame img.show {
+      display: block;
+    }
+
+    .image-loader,
+    .image-empty {
+      color: #dbe8f5;
+      text-align: center;
+      padding: 22px;
+      line-height: 1.45;
+    }
+
+    .image-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      border-radius: 999px;
+      background: rgba(7,17,31,0.72);
+      z-index: 2;
+      font-size: 1.7rem;
+    }
+
+    .image-nav.prev { left: 12px; }
+    .image-nav.next { right: 12px; }
+
+    .image-counter {
+      padding: 12px 18px 18px;
+      color: var(--muted);
+      font-size: 0.9rem;
       text-align: center;
     }
-    h1, h2 {
-      text-shadow: 0 0 12px #000;
-      font-size: 1.6rem;
+
+    .plan-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    .plan-card {
+      padding: 18px;
+    }
+
+    .plan-card h3 {
+      font-size: 1.08rem;
+      margin-bottom: 8px;
+      letter-spacing: -0.03em;
+    }
+
+    .plan-card p {
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 0.94rem;
+    }
+
+    .plan-example {
+      margin-top: 10px;
+      padding: 12px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(0,224,255,0.14), rgba(255,79,216,0.12));
+      color: #eef9ff;
+      font-size: 0.9rem;
+      line-height: 1.45;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .quiz-wrapper {
+      display: grid;
+      grid-template-columns: 0.9fr 1.1fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      padding: 24px;
+    }
+
+    .panel h3 {
+      font-size: 1.35rem;
+      margin-bottom: 10px;
+      letter-spacing: -0.03em;
+    }
+
+    .panel p {
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .progress-shell {
+      height: 13px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.12);
+      margin: 14px 0 18px;
+    }
+
+    .progress {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      border-radius: inherit;
+      transition: width .3s ease;
+    }
+
+    .quiz-card {
+      padding: 26px;
+    }
+
+    .question-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 800;
+    }
+
+    .question {
+      font-size: clamp(1.35rem, 2.4vw, 2.2rem);
+      line-height: 1.16;
+      letter-spacing: -0.04em;
       margin-bottom: 20px;
     }
-    .section {
-      display: none;
+
+    .answers {
+      display: grid;
+      gap: 12px;
+    }
+
+    .answer {
       width: 100%;
-      max-width: 700px;
+      text-align: left;
+      padding: 16px 18px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: white;
+      font-size: 0.98rem;
+      line-height: 1.35;
     }
-    .active {
-      display: block;
 
+    .answer.correct {
+      background: rgba(67, 232, 155, 0.18);
+      border-color: rgba(67, 232, 155, 0.62);
+    }
 
-      input[type="number"] {
-  color: white;        /* color del texto dentro del input */
-  background: transparent; /* opcional, para que se vea con el fondo */
-}
+    .answer.wrong {
+      background: rgba(255, 107, 107, 0.18);
+      border-color: rgba(255, 107, 107, 0.62);
     }
-    input, button {
-      padding: 15px;
-      margin: 12px;
-      border-radius: 10px;
-      border: none;
-      font-size: 1.2rem;
+
+    .feedback {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.09);
+      color: #d8e9f8;
+      line-height: 1.5;
+      min-height: 54px;
     }
-    input {
-      width: 80%;
-      max-width: 300px;
+
+    .hidden {
+      display: none !important;
+    }
+
+    .result-box {
+      text-align: center;
+      padding: 20px;
+    }
+
+    .result-score {
+      font-size: clamp(3.6rem, 12vw, 7rem);
+      font-weight: 950;
+      letter-spacing: -0.08em;
+      line-height: 0.95;
+      background: linear-gradient(135deg, #fff, var(--accent), var(--accent-2));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin: 16px 0;
+    }
+
+    .visa-tip {
+      margin-top: 18px;
+      padding: 18px;
+      border-radius: 22px;
+      background: rgba(255, 209, 102, 0.12);
+      border: 1px solid rgba(255, 209, 102, 0.24);
+      color: #fff4d6;
+      line-height: 1.55;
+      font-size: 0.94rem;
+    }
+
+    footer {
+      margin-top: 30px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.55;
       text-align: center;
     }
-    button {
-      background: goldenrod;
-      color: #000;
-      cursor: pointer;
-      font-weight: bold;
-      box-shadow: 0 0 10px rgba(218,165,32,0.7);
-      width: 80%;
-      max-width: 300px;
+
+    @media (max-width: 940px) {
+      .app { width: min(100% - 28px, 1180px); }
+
+      .hero,
+      .quiz-wrapper {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-card,
+      .photo-panel {
+        min-height: auto;
+      }
+
+      .photo-panel { height: 360px; }
     }
-    button:active {
-      transform: scale(0.95);
+
+    @media (max-width: 640px) {
+      body {
+        background:
+          radial-gradient(circle at top left, rgba(0, 224, 255, 0.24), transparent 38%),
+          radial-gradient(circle at top right, rgba(255, 79, 216, 0.20), transparent 38%),
+          linear-gradient(135deg, #07111f 0%, #0e1b33 55%, #12081e 100%);
+      }
+
+      .app {
+        width: 100%;
+        padding: 12px 12px 38px;
+      }
+
+      .floating-home {
+        right: 10px;
+        bottom: 10px;
+        min-height: 42px;
+        padding: 11px 13px;
+        font-size: 0.82rem;
+      }
+
+      .hero {
+        gap: 14px;
+        margin-bottom: 16px;
+      }
+
+      .hero-card,
+      .panel,
+      .quiz-card,
+      .place-card,
+      .photo-panel,
+      .map-card,
+      .plan-card,
+      .fact-card {
+        border-radius: 20px;
+        box-shadow: 0 16px 42px rgba(0, 0, 0, 0.28);
+      }
+
+      .hero-card {
+        padding: 22px 18px;
+      }
+
+      .hero-card::after {
+        right: -10px;
+        bottom: -18px;
+        font-size: 4.8rem;
+        opacity: 0.85;
+      }
+
+      .badge {
+        font-size: 0.7rem;
+        padding: 8px 11px;
+        max-width: 100%;
+        white-space: normal;
+        line-height: 1.25;
+      }
+
+      h1 {
+        margin-top: 16px;
+        font-size: clamp(2.15rem, 14vw, 3.35rem);
+        line-height: 0.98;
+        letter-spacing: -0.06em;
+      }
+
+      .hero p {
+        font-size: 0.98rem;
+        line-height: 1.58;
+        margin-top: 14px;
+      }
+
+      .hero-actions {
+        gap: 10px;
+        margin-top: 20px;
+      }
+
+      .hero-actions button,
+      button {
+        width: 100%;
+        min-height: 48px;
+        padding: 13px 15px;
+        font-size: 0.94rem;
+      }
+
+      .photo-panel { height: 255px; }
+
+      .photo-caption {
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        padding: 13px;
+        border-radius: 17px;
+      }
+
+      .photo-caption strong { font-size: 1rem; }
+
+      .photo-caption span {
+        font-size: 0.82rem;
+        line-height: 1.35;
+      }
+
+      .section-title {
+        display: block;
+        margin: 28px 0 13px;
+      }
+
+      .section-title h2 {
+        font-size: 1.65rem;
+        line-height: 1.08;
+      }
+
+      .section-title p {
+        margin-top: 7px;
+        font-size: 0.9rem;
+        line-height: 1.48;
+      }
+
+      .filters {
+        gap: 8px;
+        padding: 2px 2px 10px;
+        margin-bottom: 10px;
+      }
+
+      .filter {
+        width: auto;
+        min-width: max-content;
+        min-height: 42px;
+        padding: 11px 14px;
+        font-size: 0.86rem;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+
+      .place-image { height: 205px; }
+
+      .tag {
+        top: 11px;
+        left: 11px;
+        font-size: 0.68rem;
+        padding: 6px 10px;
+      }
+
+      .place-content { padding: 17px; }
+
+      .place-content h3 {
+        font-size: 1.18rem;
+        line-height: 1.18;
+      }
+
+      .place-content p {
+        font-size: 0.91rem;
+        line-height: 1.52;
+        margin-bottom: 12px;
+      }
+
+      .quick-facts {
+        gap: 7px;
+        margin-bottom: 12px;
+      }
+
+      .quick-facts div {
+        padding: 9px 10px;
+        border-radius: 14px;
+        font-size: 0.84rem;
+        line-height: 1.38;
+      }
+
+      .learn-line {
+        padding: 12px;
+        border-radius: 15px;
+        font-size: 0.86rem;
+        line-height: 1.4;
+      }
+
+      .fact-card {
+        padding: 14px;
+      }
+
+      .fact-card p {
+        font-size: 0.88rem;
+      }
+
+      .map-card { padding: 14px; }
+
+      #floridaMap {
+        height: 420px;
+        border-radius: 18px;
+      }
+
+      .legend-pill {
+        font-size: 0.8rem;
+        padding: 9px 10px;
+      }
+
+      .map-note { font-size: 0.82rem; }
+
+      .image-modal { padding: 10px; }
+
+      .image-modal-card { border-radius: 20px; }
+
+      .image-frame {
+        height: 56vh;
+        margin: 0 10px;
+        border-radius: 18px;
+      }
+
+      .image-modal-top { padding: 12px 12px 10px; }
+
+      .image-modal-top h3 { font-size: 1rem; }
+
+      .image-close {
+        width: 38px;
+        height: 38px;
+      }
+
+      .image-nav {
+        width: 40px;
+        height: 40px;
+      }
+
+      .plan-card { padding: 16px; }
+
+      .plan-card h3 { font-size: 1rem; }
+
+      .plan-card p,
+      .plan-example {
+        font-size: 0.88rem;
+      }
+
+      .quiz-wrapper { gap: 14px; }
+
+      .panel,
+      .quiz-card {
+        padding: 18px;
+      }
+
+      .panel h3 { font-size: 1.2rem; }
+
+      .panel p,
+      .visa-tip {
+        font-size: 0.9rem;
+        line-height: 1.5;
+      }
+
+      .question-top {
+        align-items: flex-start;
+        font-size: 0.78rem;
+        line-height: 1.25;
+      }
+
+      .question {
+        font-size: 1.45rem;
+        line-height: 1.16;
+        margin-bottom: 16px;
+      }
+
+      .answers { gap: 10px; }
+
+      .answer {
+        min-height: 52px;
+        padding: 14px;
+        border-radius: 16px;
+        font-size: 0.93rem;
+        line-height: 1.34;
+      }
+
+      .feedback {
+        margin-top: 13px;
+        padding: 13px;
+        border-radius: 16px;
+        font-size: 0.9rem;
+        line-height: 1.45;
+      }
+
+      .result-box { padding: 8px 0; }
+
+      .result-score {
+        font-size: clamp(3.7rem, 22vw, 6rem);
+      }
+
+      footer {
+        margin-top: 24px;
+        padding: 0 10px;
+        font-size: 0.78rem;
+      }
     }
-    .emoji {
-      font-size: 3.5rem;
-      margin: 10px;
-    }
-    .word-box {
-      display: inline-block;
-      background: #333;
-      padding: 12px 18px;
-      margin: 8px;
-      border: 2px solid goldenrod;
-      border-radius: 10px;
-      cursor: pointer;
-      color: #f5deb3;
-      transition: 0.3s;
-      font-size: 1.1rem;
-    }
-    .word-box:hover {
-      background: goldenrod;
-      color: #000;
-    }
-    /* Hints especiales solo borde verde */
-    .hint {
-      border: 2px solid green !important;
-    }
-    /* Números resaltados */
-    #codigo {
-      font-size: 2rem;
-      font-weight: bold;
-      color: gold;
-      text-shadow: 0 0 10px goldenrod;
-      margin: 20px 0;
-    }
-    .rueda-container {
-      display: flex;
-      gap: 15px;
-      margin: 25px 0;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-    .rueda {
-      width: 90px;
-      height: 90px;
-      border: 3px solid goldenrod;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 2.2rem;
-      cursor: pointer;
-      background: radial-gradient(circle, #333, #000);
-      box-shadow: 0 0 12px rgba(218,165,32,0.8);
-      transition: transform 0.3s ease;
-    }
-    .rueda:active {
-      transform: scale(1.1);
-    }
-    #mensaje {
-      font-size: 1.6rem;
-      margin-top: 20px;
-      color: lightgreen;
-      text-shadow: 0 0 8px black;
-      display: none;
-    }
-    .leyenda {
-      font-style: italic;
-      background: rgba(0,0,0,0.6);
-      border: 1px solid goldenrod;
-      padding: 12px;
-      border-radius: 8px;
-      margin: 15px auto;
-      max-width: 90%;
-      font-size: 1rem;
-      line-height: 1.5;
-    }
-    #estado, #hallazgo, #progreso {
-      margin-top: 15px;
-      font-weight: bold;
-    }
-    #hallazgo {
-      font-size: 1.8rem;
-      color: lightgreen;
-      margin-top: 20px;
-      display: none;
-      text-shadow: 0 0 12px #000;
-    }
-    #progreso {
-      font-size: 1.3rem;
-      margin-top: 15px;
-      color: white;
-    }
-    #error2 {
-      color: red;
-      font-size: 1.2rem;
-      margin-top: 10px;
-      height: 24px;
-    }
-    /* Ajustes móviles */
-    @media (max-width: 480px) {
-      h1 { font-size: 1.3rem; }
-      h2 { font-size: 1.1rem; }
-      .emoji { font-size: 3rem; }
-      .rueda { width: 75px; height: 75px; font-size: 1.8rem; }
-      #mensaje { font-size: 1.3rem; }
-      .word-box { font-size: 1rem; padding: 10px 14px; }
-      #codigo { font-size: 1.6rem; }
+
+    @media (max-width: 390px) {
+      .app {
+        padding-left: 10px;
+        padding-right: 10px;
+      }
+
+      h1 { font-size: 2.25rem; }
+
+      .hero p,
+      .place-content p,
+      .panel p,
+      .feedback {
+        font-size: 0.88rem;
+      }
+
+      .photo-panel { height: 230px; }
+
+      .place-image { height: 190px; }
+
+      #floridaMap { height: 390px; }
+
+      .question { font-size: 1.32rem; }
     }
   </style>
 </head>
+
 <body>
+  <main class="app">
+    <button class="floating-home" onclick="goHome()">Inicio</button>
 
-  <!-- Pantalla de inicio -->
-  <div id="iniciar" class="section active">
-    <h2>✨ Acertijo misterioso del puertorriqueño ✨</h2>
-    <p>
-      Los pasados días has descifrado 2 maneras de traducir mensajes ocultos,<br>
-      esta vez esos conocimientos adquiridos te ayudarán a avanzar<br>
-      por una serie de acertijos que te llevarán al acertijo final.<br><br>
-      ¿Estás lista?
-    </p>
-    <button onclick="comenzar()">Comenzar</button>
-  </div>
+    <section class="hero" id="homeSection">
+      <div class="hero-card">
+        <div>
+          <span class="badge">🌴 Miami Explore · Paola aprende jugando</span>
+          <h1>Pao conoce un poco de Miami.</h1>
+          <p>
+            Explora lugares turísticos importantes, aprende datos cortos y luego contesta un quiz.
+            También puedes abrir el mapa de Florida o practicar tu plan de viaje.
+          </p>
+          <div class="hero-actions">
+            <button class="primary" onclick="scrollToPlaces()">Empezar a estudiar</button>
+            <button onclick="showMapSection()">Mapa de Florida</button>
+            <button onclick="showPlanSection()">Mi plan de viaje</button>
+            <button onclick="startQuiz()">Ir directo al quiz</button>
+          </div>
+        </div>
+      </div>
 
-  <!-- Acertijo 1 -->
-  <div id="acertijo1" class="section">
-    <h2>🦅 Acertijo misterioso del puertorriqueño 🗝️</h2>
-    <div>
-      <span class="emoji">🦉</span>
-      <span class="emoji">🍇</span>
-      <span class="emoji">🐸</span>
-      <span class="emoji">🐴</span>
-      <span class="emoji">🥑</span>
+      <div class="photo-panel panel">
+        <img src="https://images.unsplash.com/photo-1535498730771-e735b998cd64?auto=format&fit=crop&w=1200&q=80" alt="Vista de Miami" />
+        <div class="photo-caption">
+          <strong>Miami, Florida</strong>
+          <span>Playas, cultura latina, arte urbano, compras, arquitectura Art Deco y naturaleza.</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="placesSection">
+      <div class="section-title">
+        <div>
+          <h2>Lugares importantes de Miami</h2>
+          <p>Lee cada tarjeta como si fueran mini flashcards. Qué es, por qué visitarlo y una frase útil para recordarlo.</p>
+        </div>
+      </div>
+
+      <div class="filters" id="filters"></div>
+      <div class="grid" id="placesGrid"></div>
+    </section>
+
+    <section id="factsSection">
+      <div class="section-title">
+        <div>
+          <h2>Datos curiosos de Miami</h2>
+          <p>Datos cortos para recordar y hablar de Miami con más seguridad.</p>
+        </div>
+      </div>
+
+      <div class="facts-grid">
+        <article class="fact-card"><span class="fact-icon">1</span><p>Miami es una de las principales ciudades de Florida.</p></article>
+        <article class="fact-card"><span class="fact-icon">2</span><p>Miami es la segunda ciudad más poblada de Florida.</p></article>
+        <article class="fact-card"><span class="fact-icon">3</span><p>Miami Beach es famosa por su arquitectura Art Deco.</p></article>
+        <article class="fact-card"><span class="fact-icon">4</span><p>El Art Deco District tiene más de 800 edificios históricos.</p></article>
+        <article class="fact-card"><span class="fact-icon">5</span><p>Wynwood es famoso por sus murales y arte urbano.</p></article>
+        <article class="fact-card"><span class="fact-icon">6</span><p>Coconut Grove es uno de los barrios más antiguos de Miami.</p></article>
+        <article class="fact-card"><span class="fact-icon">7</span><p>Miami mezcla cultura latina, playa, arte y naturaleza.</p></article>
+        <article class="fact-card"><span class="fact-icon">8</span><p>Miami tiene uno de los puertos de cruceros más famosos del mundo: PortMiami.</p></article>
+        <article class="fact-card"><span class="fact-icon">9</span><p>Miami está a 3hr 30min en vehículo de los parques de Disney en Orlando.</p></article>
+        <article class="fact-card"><span class="fact-icon">10</span><p>Miami se caracteriza por su estilo de películas de Hollywood y rumba caribeña.</p></article>
+        <article class="fact-card"><span class="fact-icon">11</span><p>En Miami el 70% de la población habla español.</p></article>
+      </div>
+    </section>
+
+    <section id="mapSection" class="hidden-section">
+      <div class="section-title">
+        <div>
+          <h2>Mapa de Florida</h2>
+          <p>
+            Ubica Miami dentro de Florida, mira la zona sombreada en rojo y toca los pines para conocer lugares turísticos importantes.
+          </p>
+        </div>
+      </div>
+
+      <div class="map-card">
+        <div id="floridaMap"></div>
+
+        <div class="map-legend">
+          <div class="legend-row">
+            <span class="legend-pill"><span class="legend-dot red"></span> Miami sombreado en rojo</span>
+            <span class="legend-pill"><span class="legend-dot blue"></span> Lugares de interés en Florida</span>
+            <span class="legend-pill"><span class="legend-dot pink"></span> Lugares importantes en Miami</span>
+          </div>
+          <p class="map-note">
+            Consejo: toca cada pin para ver una explicación corta y abrir imágenes del lugar.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="planSection" class="hidden-section">
+      <div class="section-title">
+        <div>
+          <h2>Mi plan de viaje</h2>
+          <p>Estas ideas ayudan a que Paola practique una explicación sencilla, natural y coherente sobre su viaje.</p>
+        </div>
+      </div>
+
+      <div class="plan-grid">
+        <article class="plan-card">
+          <h3>1. ¿Por qué Miami?</h3>
+          <p>
+            Miami es una ciudad turística con playa, cultura latina, arte urbano, compras y lugares fáciles de visitar en pocos días.
+          </p>
+          <div class="plan-example">
+            Ejemplo: “Me gustaría conocer Miami porque tiene playas, cultura latina, arte urbano y lugares turísticos muy conocidos.”
+          </div>
+        </article>
+
+        <article class="plan-card">
+          <h3>2. Lugares que quiero conocer</h3>
+          <p>
+            Puede mencionar lugares sencillos como South Beach, Wynwood, Little Havana, Bayside, Biscayne Bay y Everglades.
+          </p>
+          <div class="plan-example">
+            Ejemplo: “Quiero visitar South Beach, Wynwood, Little Havana, Bayside y hacer un paseo por Biscayne Bay.”
+          </div>
+        </article>
+
+        <article class="plan-card">
+          <h3>3. ¿Cuántos días iría?</h3>
+          <p>
+            Es mejor tener una idea clara y realista de la duración del viaje, por ejemplo una semana o unos pocos días de vacaciones.
+          </p>
+          <div class="plan-example">
+            Ejemplo: “Me gustaría ir aproximadamente por una semana durante mis vacaciones.”
+          </div>
+        </article>
+
+        <article class="plan-card">
+          <h3>4. ¿Dónde me quedaría?</h3>
+          <p>
+            Puede decir que se quedaría en un hotel o zona turística, sin inventar detalles que no tenga confirmados.
+          </p>
+          <div class="plan-example">
+            Ejemplo: “Me gustaría quedarme en un hotel en Miami Beach o cerca del Downtown, dependiendo del presupuesto.”
+          </div>
+        </article>
+
+        <article class="plan-card">
+          <h3>5. ¿Por qué regreso a Colombia?</h3>
+          <p>
+            Esto es bien importante. Debe poder explicar sus razones reales para regresar: trabajo, estudios, familia, responsabilidades o compromisos.
+          </p>
+          <div class="plan-example">
+            Ejemplo: “Regreso a Colombia porque allá tengo mi vida, mi familia y mis responsabilidades.”
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="quizSection">
+      <div class="section-title">
+        <div>
+          <h2>Quiz de aprendizaje</h2>
+          <p>Escoge la mejor respuesta. Al final verás tu puntuación y una recomendación para seguir practicando.</p>
+        </div>
+      </div>
+
+      <div class="quiz-wrapper">
+        <aside class="panel">
+          <h3>Modo entrevista</h3>
+          <p>
+            No se trata de memorizar un libreto. Sirve para que puedas responder con naturalidad si te preguntan
+            qué lugares te interesan, por qué Miami y qué harías como turista.
+          </p>
+          <div class="progress-shell"><div class="progress" id="progressBar"></div></div>
+          <p id="scoreText">Puntuación: 0 / 0</p>
+          <div class="visa-tip">
+            Consejo: una respuesta creíble combina turismo, fechas reales, presupuesto, acompañantes, alojamiento y regreso a Colombia. Nunca inventes información.
+          </div>
+        </aside>
+
+        <div class="quiz-card">
+          <div id="quizContent">
+            <div class="question-top">
+              <span id="questionCounter">Pregunta 1</span>
+              <span id="quizCategory">Miami</span>
+            </div>
+            <h3 class="question" id="questionText">Presiona comenzar para iniciar.</h3>
+            <div class="answers" id="answers"></div>
+            <div class="feedback" id="feedback">Cuando selecciones una respuesta, aquí verás la explicación.</div>
+            <div class="hero-actions">
+              <button class="primary" id="nextBtn" onclick="nextQuestion()">Comenzar quiz</button>
+              <button onclick="resetQuiz()">Reiniciar</button>
+            </div>
+          </div>
+
+          <div id="resultContent" class="result-box hidden">
+            <span class="badge">Resultado final</span>
+            <div class="result-score" id="finalScore">0/15</div>
+            <p id="resultMessage"></p>
+            <div class="hero-actions" style="justify-content:center;">
+              <button class="primary" onclick="resetQuiz()">Practicar otra vez</button>
+              <button onclick="scrollToPlaces()">Repasar lugares</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div id="imageViewer" class="image-modal hidden" onclick="closeImageViewer()">
+      <div class="image-modal-card" onclick="event.stopPropagation()">
+        <div class="image-modal-top">
+          <h3 id="imageViewerTitle">Imágenes</h3>
+          <button class="image-close" onclick="closeImageViewer()">×</button>
+        </div>
+
+        <div class="image-frame">
+          <button class="image-nav prev" onclick="previousImage()">‹</button>
+          <img id="viewerImage" alt="Imagen del lugar" />
+          <button class="image-nav next" onclick="nextImage()">›</button>
+          <div id="imageLoader" class="image-loader">Cargando imágenes...</div>
+        </div>
+
+        <div id="imageCounter" class="image-counter">Imagen 1 de 1</div>
+      </div>
     </div>
-    <input type="text" id="respuesta1" placeholder="Escribe aquí">
-    <br>
-    <button onclick="validar1()">Avanzar</button>
-    <p id="error1" style="color:red;"></p>
-  </div>
 
-  <!-- Acertijo 2 -->
-  <div id="acertijo2" class="section">
-    <h2>🌿 Acertijo misterioso del puertorriqueño 🌿</h2>
-    <div class="numero" id="codigo">5-12 / 21-5-20-16-19-16 / 17-5-19-4-9-4-16</div>
-    <div id="progreso"></div>
-    <p>Desifra el código numérico y selecciona las palabras correctas:</p>
-    <div id="wordOptions">
-      <div class="word-box hint" onclick="selectWord(this)">Aguila</div>
-      <div class="word-box" onclick="selectWord(this)">Destino</div>
-      <div class="word-box" onclick="selectWord(this)">Tesoro</div>
-      <div class="word-box" onclick="selectWord(this)">Oscuro</div>
-      <div class="word-box" onclick="selectWord(this)">El</div>
-      <div class="word-box" onclick="selectWord(this)">Puerta</div>
-      <div class="word-box" onclick="selectWord(this)">La</div>
-      <div class="word-box hint" onclick="selectWord(this)">Llave</div>
-      <div class="word-box" onclick="selectWord(this)">Perdido</div>
-      <div class="word-box" onclick="selectWord(this)">Camino</div>
-      <div class="word-box" onclick="selectWord(this)">Los</div>
-      <div class="word-box" onclick="selectWord(this)">Guardián</div>
-      <div class="word-box" onclick="selectWord(this)">Árbol</div>
-      <div class="word-box" onclick="selectWord(this)">Vida</div>
-      <div class="word-box" onclick="selectWord(this)">Luz</div>
-      <div class="word-box hint" onclick="selectWord(this)">Ramo de hojas</div>
-    </div>
-    <br>
-    <button onclick="validar2()">Avanzar</button>
-    <p id="error2"></p>
-    <p id="hallazgo">"Busca el tesoro perdido" ✅!!! </p>
-  </div>
+    <footer>
+      Mini app educativa para aprender sobre Miami. Las imágenes y el mapa se cargan desde internet y pueden variar por conexión.
+    </footer>
+  </main>
 
-  <!-- Acertijo 3 -->
-<div id="acertijo3" class="section">
-  <h2>💎 El tesoro del puertorriqueño? 💎</h2>
-  <p>Haz llegado hasta el acertijo del tesoro perdido, pero debes abrirlo para descubrir lo que lleva en su interior. Debes colocar en el orden correcto los 3 emojis dentro de las ruedas. Toca las ruedas hasta encontrar la combinación correcta:</p>
-
-  <div class="leyenda">
-    Acertijo Final:<br><br>
-    “Desde lo alto junto al viento puedo apreciar el comienzo,<br>
-    pero en la mitad soy quien te abre el paso,<br>
-    y al final de todo soy el verde del campo que resguarda el secreto eterno.”
-  </div>
-
-  <div class="rueda-container">
-    <div class="rueda" onclick="girar(0)">☀️</div>
-    <div class="rueda" onclick="girar(1)">💧</div>
-    <div class="rueda" onclick="girar(2)">🪙</div>
-  </div>
-
-  <button onclick="verificar()">Probar combinación</button>
-  <p id="estado"></p>
-  <p id="mensaje">✨Correcto: Diana Paola, el verdadero tesoro del puertorriqueño eres tú. I Love You ❤️ ✨</p>
-</div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // Pantalla inicial
-    function comenzar() {
-      document.getElementById("iniciar").classList.remove("active");
-      document.getElementById("acertijo1").classList.add("active");
-    }
-
-    // Acertijo 1
-    function validar1() {
-      let resp = document.getElementById("respuesta1").value.trim().toLowerCase();
-      if (resp === "busca") {
-        document.getElementById("acertijo1").classList.remove("active");
-        document.getElementById("acertijo2").classList.add("active");
-      } else {
-        document.getElementById("error1").textContent = "❌ Intenta de nuevo.";
+    const places = [
+      {
+        name: "Playa South Beach (Sau Bich)",
+        category: "Playa",
+        image: "https://commons.wikimedia.org/wiki/Special:FilePath/South%20Beach%20%40%20Miami%20-%2031843021947.jpg?width=900",
+        description: "Una playa muy famosa de Miami Beach, conocida por su arena, el ambiente turístico, hoteles, restaurantes y vida urbana frente al mar.",
+        facts: [
+          "Es uno de los lugares más conocidos de Miami.",
+          "Ideal para caminar, tomar fotos y disfrutar la playa.",
+          "Está cerca de Ocean Drive y edificios Art Deco."
+        ],
+        line: "Frase fácil: Playa South Beach es el lugar icónico para disfrutar playa, fotos y ambiente turístico en Miami."
+      },
+      {
+        name: "Avenida Ocean Drive (Oushan Draiv)",
+        category: "Historia",
+        image: "https://commons.wikimedia.org/wiki/Special:FilePath/Miami4b.jpg?width=900",
+        description: "Una avenida famosa de Miami Beach, conocida por sus edificios coloridos de estilo Art Deco, restaurantes, luces y ambiente turístico.",
+        facts: [
+          "Es una de las avenidas más famosas de Miami Beach.",
+          "Tiene edificios históricos y coloridos.",
+          "Se puede recorrer caminando cerca de South Beach."
+        ],
+        line: "Frase fácil: Avenida Ocean Drive es una calle famosa para ver arquitectura Art Deco y ambiente de Miami Beach."
+      },
+      {
+        name: "Murales Wynwood (Guinwud)",
+        category: "Arte",
+        image: "https://commons.wikimedia.org/wiki/Special:FilePath/Wynwood%20Walls%20Miami%20Florida%20October%202013.jpg?width=900",
+        description: "Una zona famosa por arte urbano, murales grandes, graffiti artístico, galerías y espacios creativos.",
+        facts: [
+          "Es famoso por sus murales coloridos.",
+          "Es muy popular para fotos.",
+          "Representa el lado moderno y artístico de Miami."
+        ],
+        line: "Frase fácil: Murales Wynwood es el lugar para ver arte urbano y tomar fotos con murales famosos."
+      },
+      {
+        name: "Barrio Little Havana (Lírol Havana)",
+        category: "Cultura",
+        image: "https://commons.wikimedia.org/wiki/Special:FilePath/Calle%20Ocho%2C%20Little%20Havana%2C%20Miami%2C%20Florida%202021%20-%20Gallo%20de%20Calle%20Ocho.jpg?width=900",
+        description: "Un barrio con fuerte influencia cubana y latina, conocido por música, comida, cafés, cigarros y cultura.",
+        facts: [
+          "Calle Ocho es una de sus áreas más conocidas.",
+          "Es ideal para probar comida cubana y café.",
+          "Representa la cultura latina de Miami."
+        ],
+        line: "Frase fácil: Barrio Little Havana muestra la cultura cubana y latina de Miami."
+      },
+      {
+        name: "Centro comercial Bayside (Beisáid)",
+        category: "Compras",
+        image: "https://commons.wikimedia.org/wiki/Special:FilePath/Bayside%20Marketplace%20-%20Miami%2C%20Florida.jpg?width=900",
+        description: "Un centro comercial abierto frente al agua, con tiendas, restaurantes, música y salidas de tours en bote por la bahía.",
+        facts: [
+          "Está cerca del Downtown de Miami.",
+          "Es bueno para compras, comida y paseos en barco.",
+          "Tiene ambiente turístico familiar."
+        ],
+        line: "Frase fácil: Centro comercial Bayside combina compras, comida y vistas a la bahía."
+      },
+      {
+        name: "Museo Vizcaya (Vizcaya)",
+        category: "Historia",
+        image: "https://commons.wikimedia.org/wiki/Special:FilePath/Villa%20Vizcaya%2020110228.jpg?width=900",
+        description: "Un museo histórico en una mansión elegante con jardines, arte, arquitectura europea y vistas a Biscayne Bay.",
+        facts: [
+          "Es una visita cultural y fotogénica.",
+          "Tiene jardines hermosos.",
+          "Es diferente al Miami de playa y compras."
+        ],
+        line: "Frase fácil: Museo Vizcaya es un lugar histórico con jardines bonitos y arquitectura elegante."
+      },
+      {
+        name: "Parque Everglades (Évergleyds)",
+        category: "Naturaleza",
+        image: "https://commons.wikimedia.org/wiki/Special:FilePath/Everglades%20Natl%20Park%20Alligator.jpg?width=900",
+        description: "Un parque natural cerca de Miami, conocido por humedales, vida silvestre, caimanes y tours en airboat.",
+        facts: [
+          "Es una experiencia de naturaleza única en Florida.",
+          "Se pueden ver caimanes y paisajes distintos.",
+          "Es buen plan si quieres salir un poco de la ciudad."
+        ],
+        line: "Frase fácil: Parque Everglades es naturaleza, caimanes y aventura cerca de Miami."
+      },
+      {
+        name: "Bahía Biscayne (Biskein)",
+        category: "Naturaleza",
+        image: "https://commons.wikimedia.org/wiki/Special:FilePath/Biscayne%20bay%20-%20downtown%20miami.jpg?width=900",
+        description: "Una bahía famosa donde se pueden hacer tours en bote para ver el skyline, islas, mansiones y Miami desde el agua.",
+        facts: [
+          "Da una vista diferente de Miami.",
+          "Muchos tours salen cerca de Bayside.",
+          "Es popular para fotos y turismo relajado."
+        ],
+        line: "Frase fácil: Bahía Biscayne permite ver Miami desde el agua en un paseo en bote."
+      },
+      {
+        name: "Paseo Lincoln Road (Linkon Roud)",
+        category: "Compras",
+        image: "https://commons.wikimedia.org/wiki/Special:FilePath/Miami%20Beach%20-%20Lincoln%20Road%202.jpg?width=900",
+        description: "Un paseo peatonal en Miami Beach con tiendas, restaurantes, cafés y ambiente para caminar.",
+        facts: [
+          "Es fácil recorrerlo a pie.",
+          "Sirve para compras y comida casual.",
+          "Está cerca de otras zonas turísticas de Miami Beach."
+        ],
+        line: "Frase fácil: Paseo Lincoln Road es un lugar para caminar, comer y hacer compras en Miami Beach."
+      },
+      {
+        name: "Museo PAMM (Pam)",
+        category: "Arte",
+        image: "https://commons.wikimedia.org/wiki/Special:FilePath/PAMM%20MRD%2023.jpg?width=900",
+        description: "Un museo de arte moderno y contemporáneo cerca del Downtown de Miami, con arquitectura llamativa y vista al agua.",
+        facts: [
+          "Es ideal para visitantes interesados en arte.",
+          "Está en una zona cultural cerca del Downtown.",
+          "Tiene espacios interiores y exteriores fotogénicos."
+        ],
+        line: "Frase fácil: Museo PAMM es un museo de arte moderno y contemporáneo en Miami."
       }
+    ];
+
+    const questions = [
+      {
+        category: "Playa",
+        q: "¿Cuál lugar es una playa famosa de Miami Beach con mucho ambiente turístico?",
+        options: ["South Beach", "Everglades", "Little Havana", "PAMM"],
+        answer: "South Beach",
+        exp: "South Beach es una de las zonas más icónicas de Miami Beach por su playa, hoteles, Ocean Drive y ambiente turístico."
+      },
+      {
+        category: "Arte",
+        q: "¿Dónde verías murales grandes, graffiti artístico y arte urbano?",
+        options: ["Wynwood", "Lincoln Road", "Vizcaya", "Bayside"],
+        answer: "Wynwood",
+        exp: "Wynwood es una zona famosa por arte urbano, murales grandes y espacios creativos."
+      },
+      {
+        category: "Cultura",
+        q: "¿Qué lugar representa fuertemente la cultura cubana y latina de Miami?",
+        options: ["Little Havana", "Biscayne Bay", "South Beach", "PAMM"],
+        answer: "Little Havana",
+        exp: "Little Havana es conocido por comida cubana, música, café y cultura latina."
+      },
+      {
+        category: "Naturaleza",
+        q: "¿Qué lugar visitarías para ver humedales, caimanes y naturaleza cerca de Miami?",
+        options: ["Everglades", "Ocean Drive", "Lincoln Road", "Vizcaya"],
+        answer: "Everglades",
+        exp: "Everglades es el parque natural cerca de Miami conocido por humedales, caimanes y vida silvestre."
+      },
+      {
+        category: "Compras",
+        q: "¿Qué lugar queda frente al agua y tiene tiendas, comida y tours en bote?",
+        options: ["Bayside", "Wynwood", "Little Havana", "Ocean Drive"],
+        answer: "Bayside",
+        exp: "Bayside está frente a la bahía y es popular por compras, comida y tours en bote."
+      },
+      {
+        category: "Historia",
+        q: "¿Qué lugar es famoso por edificios Art Deco y luces de Miami Beach?",
+        options: ["Ocean Drive", "Everglades", "Biscayne Bay", "PAMM"],
+        answer: "Ocean Drive",
+        exp: "Ocean Drive es famosa por su arquitectura Art Deco y su ambiente turístico cerca de South Beach."
+      },
+      {
+        category: "Historia",
+        q: "¿Cuál lugar es conocido por una mansión histórica y jardines elegantes?",
+        options: ["Vizcaya", "Lincoln Road", "South Beach", "Bayside"],
+        answer: "Vizcaya",
+        exp: "Vizcaya combina historia, jardines, arquitectura y vistas a la bahía."
+      },
+      {
+        category: "Naturaleza",
+        q: "¿Qué lugar se asocia con paseos en bote para ver Miami desde el agua?",
+        options: ["Biscayne Bay", "Little Havana", "Wynwood", "Lincoln Road"],
+        answer: "Biscayne Bay",
+        exp: "Biscayne Bay permite ver el skyline, islas y mansiones de Miami desde el agua."
+      },
+      {
+        category: "Compras",
+        q: "¿Qué lugar es un paseo peatonal en Miami Beach para caminar, comer y hacer compras?",
+        options: ["Lincoln Road", "Everglades", "Vizcaya", "PAMM"],
+        answer: "Lincoln Road",
+        exp: "Lincoln Road es un área peatonal con tiendas, restaurantes y cafés en Miami Beach."
+      },
+      {
+        category: "Arte",
+        q: "¿Cuál lugar es un museo de arte moderno y contemporáneo cerca del Downtown de Miami?",
+        options: ["PAMM", "Little Havana", "Bayside", "South Beach"],
+        answer: "PAMM",
+        exp: "PAMM es la forma corta de recordar el Pérez Art Museum Miami."
+      },
+      {
+        category: "Datos curiosos",
+        q: "¿A qué estado de Estados Unidos pertenece la ciudad de Miami?",
+        options: ["Florida", "California", "Texas", "Nueva York"],
+        answer: "Florida",
+        exp: "Miami pertenece al estado de Florida."
+      },
+      {
+        category: "Datos curiosos",
+        q: "Miami mezcla:",
+        options: ["Cultura latina, playa, arte y naturaleza", "Montañas, nieve y desiertos", "Castillos medievales y volcanes", "Bosques boreales y glaciares"],
+        answer: "Cultura latina, playa, arte y naturaleza",
+        exp: "Miami mezcla cultura latina, playa, arte y naturaleza."
+      },
+      {
+        category: "Datos curiosos",
+        q: "Little Havana es una representación de:",
+        options: ["Cuba", "Italia", "Francia", "Japón"],
+        answer: "Cuba",
+        exp: "Little Havana representa fuertemente la cultura cubana y latina en Miami."
+      },
+      {
+        category: "Datos curiosos",
+        q: "¿Qué porcentaje de la población de Miami habla español?",
+        options: ["70%", "10%", "25%", "40%"],
+        answer: "70%",
+        exp: "En Miami, aproximadamente el 70% de la población habla español."
+      },
+      {
+        category: "Datos curiosos",
+        q: "¿Cuánto tiempo toma ir desde Miami a un parque de Disney en Orlando?",
+        options: ["3hr 30min", "30min", "1hr", "8hr"],
+        answer: "3hr 30min",
+        exp: "Desde Miami hasta los parques de Disney en Orlando toma aproximadamente 3hr 30min en vehículo."
+      }
+    ];
+
+    const galleryPages = {
+      disney: {
+        title: "Walt Disney World",
+        images: [
+          "https://disneyexperiences.com/app/uploads/2023/12/mickey-mouse-cinderella-castle.jpg",
+          "https://disneyexperiences.com/app/uploads/2023/12/pixar-pier.jpg",
+          "https://disneyexperiences.com/app/uploads/2023/12/star-wars-galaxys-edge.jpg",
+          "https://disneyexperiences.com/app/uploads/2025/02/2024-dlp-notre-dame-experience-4-optimized.png"
+        ]
+      },
+      kennedy: {
+        title: "Kennedy Space Center",
+        images: [
+          "https://upload.wikimedia.org/wikipedia/commons/a/a0/VAB_and_SLS.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/NASA%E2%80%99s_SLS_and_SpaceX%E2%80%99s_Falcon_9_at_Launch_Complex_39A_%26_39B_%28KSC-20220406-PH-JBP01-0001%29.jpg/1920px-NASA%E2%80%99s_SLS_and_SpaceX%E2%80%99s_Falcon_9_at_Launch_Complex_39A_%26_39B_%28KSC-20220406-PH-JBP01-0001%29.jpg",
+          "https://www.happypalmstays.com/wp-content/uploads/2019/02/Kennedy_Space_Center_Visitor_Complex_051.jpg"
+        ]
+      },
+      evergladesMap: {
+        title: "Everglades National Park",
+        images: [
+          "https://cdn.britannica.com/92/130792-050-ED0EFC61/Everglades-National-Park-Florida.jpg",
+          "https://cdn.aglty.io/continuingeducation/blog/a-guide-to-visiting-everglades-national-park.png?q=95&w=1440&format=auto",
+          "https://www.earthtrekkers.com/wp-content/uploads/2018/03/Everglades-Park-Sign.jpg.optimal.jpg"
+        ]
+      },
+      keywest: {
+        title: "Key West",
+        images: [
+          "https://historichideaways.com/wp-content/uploads/2023/06/Oneill-Pics_-7.jpg",
+          "https://www.southernliving.com/thmb/V2nPawvvmr2J7argJtXVJb9l_Es=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/souvenir-shop-681369345-2000-415c75f69d2d4b81b496cf7fb0a0ba55.jpg",
+          "https://media.licdn.com/dms/image/v2/D561BAQEFcIXCwxXnyg/company-background_10000/company-background_10000/0/1655586232222/the_florida_keys_key_west_cover?e=2147483647&v=beta&t=qVlwdfbVp9KiFN9x1KJkaEGjDgGt2ZvH1MkCpNMvrOE"
+        ]
+      },
+      southbeach: {
+        title: "South Beach",
+        images: [
+          "https://cavaliersouthbeach.com/wp-content/uploads/2023/02/history-sobe-1-1080x562.jpg",
+          "https://miamibeachdrive.com/wp-content/uploads/2025/01/qtq80-swNLQV.jpeg",
+          "https://travel.usnews.com/images/Pola_Damonte_via_Getty_Imagesbeach-aerial-view-buildings.jpg"
+        ]
+      },
+      oceanDrive: {
+        title: "Ocean Drive",
+        images: [
+          "https://www.miamiandbeaches.com/getmedia/e48d9a05-1686-48f3-ba9f-339f13d9cf3c/shutterstock_449408050-2_Ocean_Drive_neon_1440x900.jpg?width=1000&resizemode=force",
+          "https://upload.wikimedia.org/wikipedia/commons/b/bf/Ocean_drive_day_2009j.JPG",
+          "https://www.flyingandtravel.com/wp-content/uploads/2017/07/south-beach-miami-ocean-drive-neon-1920x550.jpg"
+        ]
+      },
+      wynwood: {
+        title: "Wynwood",
+        images: [
+          "https://midtownmiaminow.com/wp-content/uploads/2017/04/Wynwood-Walls-Miami-entrance.jpg",
+          "https://www.travelandleisure.com/thmb/KVlUAAr3y3iK8MWHKjsnCHcB1jw=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/TAL-wynwood-walls-miami-INSTAMIAMI1124-b7a58fbf480049f4810d9825006c6d2b.jpg",
+          "https://res.klook.com/image/upload/w_750,h_469,c_fill,q_85/w_80,x_15,y_15,g_south_west,l_Klook_water_br_trans_yhcmh3/activities/rynmjjmnynf5i8mbrf6p.jpg",
+          "https://pubcrawlmiami.com/wp-content/uploads/2023/08/miami-wynwood-art-basel.jpg"
+        ]
+      },
+      littleHavana: {
+        title: "Little Havana",
+        images: [
+          "https://assets.simpleviewinc.com/simpleview/image/upload/c_limit,h_1200,q_75,w_1200/v1/clients/visitflorida/Calle_Ocho_Patrick_Farrell_f91716bc-4c61-4ce3-85fa-3f6cbe153414.jpg",
+          "https://miami.propertyrocks.com/wp-content/uploads/2025/08/shutterstock_2450709897.jpg",
+          "https://new.escamps.com/wp-content/uploads/2024/02/Untitled-design-20.jpg"
+        ]
+      },
+      bayside: {
+        title: "Bayside",
+        images: [
+          "https://assets.simpleviewinc.com/simpleview/image/upload/c_limit,w_1000/f_auto/crm/miamifl/Skyviews_Miami_Obervation_Wheel1440x900_10BEA47A-5056-A36A-0B2A3DFAB06C98BE-10bea2ee5056a36_10bea93a-5056-a36a-0b4a79559c2e706b.jpg",
+          "https://www.miami.gov/files/sharedassets/public/v/1/dream/marinas/miamarina-bayside-5.jpg",
+          "https://res.cloudinary.com/see-sight-tours/image/upload/v1744954154/strapi/The_Bayside_Marketplace_in_Miami_on_a_sunny_summer_day_92a58964aa.jpg"
+        ]
+      },
+      vizcaya: {
+        title: "Vizcaya",
+        images: [
+          "https://assets.simpleviewinc.com/simpleview/image/upload/c_limit,w_600/f_auto/crm/miamifl/VizcayaLate_A6ECB13A-5056-A36A-0B09017F92A7D610_a8823184-5056-a36a-0b37436fcfe52076.jpg",
+          "https://vizcaya.org/wp-content/uploads/2020/04/Swimming-Pool-Vizcaya.png",
+          "https://freehandhotels.com/magazine/wp-content/uploads/sites/6/2023/07/How-to-spend-an-afternoon-at-Miami_s-Vizcaya-Museum-_-Gardens.png"
+        ]
+      },
+      biscayneBay: {
+        title: "Biscayne Bay",
+        images: [
+          "https://www.miamiandbeaches.com/getmedia/7ac6c49b-a910-4b1f-92b1-72a6891c7914/Aerial_ocean_Key_Biscayne_1440x900.jpg?width=1000&resizemode=force",
+          "https://upload.wikimedia.org/wikipedia/commons/a/a5/Miami%2C_Florida%2C_Skyline_4.jpg",
+          "https://res.klook.com/images/fl_lossy.progressive,q_65/c_fill,w_1295,h_867/w_80,x_15,y_15,g_south_west,l_Klook_water_br_trans_yhcmh3/activities/r4iohctmfsmtdhglxutg/MiamiBiscayneBay15-HourSightseeingCruise.jpg",
+          "https://assets.simpleviewinc.com/simpleview/image/upload/c_fill,f_jpg,h_625,q_55,w_500/v1/clients/visitflorida/BILL_BAGGS_CAPE_FLORIDA_HERO_1ed23613-390b-4c82-a150-f11a5dbfe2a5.jpg"
+        ]
+      },
+      pamm: {
+        title: "PAMM",
+        images: [
+          "https://images.adsttc.com/media/images/5342/9e3a/c07a/80d9/e300/0117/newsletter/pamm-south-facade-iwan-baan.jpg?1396874746",
+          "https://live.staticflickr.com/65535/38060571295_4e2722edf3_b.jpg",
+          "https://baillylectures.com/wp-content/uploads/2023/09/usa.mia_.2023.pammelrichpool.jpeg?w=1200",
+          "https://cdn.getyourguide.com/img/location/7de002f09c3c60b9.jpeg/60.jpg"
+        ]
+      }
+    };
+
+    let activeCategory = "Todos";
+    let currentQuestion = -1;
+    let score = 0;
+    let answered = false;
+    let floridaMap = null;
+    let currentGalleryImages = [];
+    let currentGalleryIndex = 0;
+
+    const grid = document.getElementById("placesGrid");
+    const filters = document.getElementById("filters");
+    const questionText = document.getElementById("questionText");
+    const questionCounter = document.getElementById("questionCounter");
+    const quizCategory = document.getElementById("quizCategory");
+    const answersEl = document.getElementById("answers");
+    const feedback = document.getElementById("feedback");
+    const nextBtn = document.getElementById("nextBtn");
+    const progressBar = document.getElementById("progressBar");
+    const scoreText = document.getElementById("scoreText");
+    const resultContent = document.getElementById("resultContent");
+    const quizContent = document.getElementById("quizContent");
+    const finalScore = document.getElementById("finalScore");
+    const resultMessage = document.getElementById("resultMessage");
+
+    function renderFilters() {
+      const categories = ["Todos", ...new Set(places.map(place => place.category))];
+
+      filters.innerHTML = categories.map(cat => `
+        <button class="filter ${cat === activeCategory ? "active" : ""}" onclick="setCategory('${cat}')">${cat}</button>
+      `).join("");
     }
 
-    // Acertijo 2
-    let seleccionadas = [];
-    function selectWord(el) {
-      if (seleccionadas.includes(el.textContent)) {
-        // Deseleccionar si ya estaba seleccionada
-        seleccionadas = seleccionadas.filter(w => w !== el.textContent);
-        el.style.background = "#333";
-        el.style.color = "#f5deb3";
-      } else {
-        if (seleccionadas.length === 3) {
-          // Deseleccionar la primera seleccionada
-          let primera = seleccionadas.shift();
-          document.querySelectorAll(".word-box").forEach(box => {
-            if (box.textContent === primera) {
-              box.style.background = "#333";
-              box.style.color = "#f5deb3";
-            }
-          });
+    function setCategory(category) {
+      activeCategory = category;
+      renderFilters();
+      renderPlaces();
+    }
+
+    function renderPlaces() {
+      const visiblePlaces = activeCategory === "Todos"
+        ? places
+        : places.filter(place => place.category === activeCategory);
+
+      grid.innerHTML = visiblePlaces.map(place => `
+        <article class="place-card">
+          <div class="place-image">
+            <div class="image-fallback">${place.name}</div>
+            <img src="${place.image}" alt="${place.name}" loading="lazy" referrerpolicy="no-referrer" onerror="this.classList.add('failed');" />
+            <span class="tag">${place.category}</span>
+          </div>
+          <div class="place-content">
+            <h3>${place.name}</h3>
+            <p>${place.description}</p>
+            <div class="quick-facts">
+              ${place.facts.map(fact => `<div>✅ ${fact}</div>`).join("")}
+            </div>
+            <div class="learn-line">${place.line}</div>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function hideOptionalSections() {
+      document.getElementById("mapSection").classList.remove("show-section");
+      document.getElementById("planSection").classList.remove("show-section");
+    }
+
+    function goHome() {
+      hideOptionalSections();
+      document.getElementById("homeSection").scrollIntoView({ behavior: "smooth" });
+    }
+
+    function scrollToPlaces() {
+      hideOptionalSections();
+      document.getElementById("placesSection").scrollIntoView({ behavior: "smooth" });
+    }
+
+    function showMapSection() {
+      document.getElementById("planSection").classList.remove("show-section");
+
+      const section = document.getElementById("mapSection");
+      section.classList.add("show-section");
+      section.scrollIntoView({ behavior: "smooth" });
+
+      setTimeout(() => {
+        initFloridaMap();
+        if (floridaMap) floridaMap.invalidateSize();
+      }, 350);
+    }
+
+    function showPlanSection() {
+      document.getElementById("mapSection").classList.remove("show-section");
+
+      const section = document.getElementById("planSection");
+      section.classList.add("show-section");
+      section.scrollIntoView({ behavior: "smooth" });
+    }
+
+    function createPin(colorClass) {
+      return L.divIcon({
+        className: "",
+        html: `<div class="custom-pin ${colorClass}"></div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 28],
+        popupAnchor: [0, -28]
+      });
+    }
+
+    function buildPopup(location) {
+      return `
+        <b>${location.name}</b><br>
+        ${location.desc}<br>
+        <a href="#" class="popup-gallery-link" onclick="openImageViewer('${location.galleryKey}'); return false;">
+          Ver imágenes
+        </a>
+      `;
+    }
+
+    function initFloridaMap() {
+      if (floridaMap) return;
+
+      floridaMap = L.map("floridaMap", {
+        scrollWheelZoom: false,
+        zoomControl: true
+      }).setView([27.65, -81.55], 6);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(floridaMap);
+
+      const floridaIcon = createPin("blue");
+      const miamiIcon = createPin("pink");
+
+      L.circle([25.7617, -80.1918], {
+        color: "#ff5f5f",
+        weight: 2,
+        fillColor: "#ff5f5f",
+        fillOpacity: 0.28,
+        radius: 26000
+      })
+        .addTo(floridaMap)
+        .bindPopup("<b>Miami sombreado</b><br>Zona principal del viaje turístico.");
+
+      const floridaLocations = [
+        {
+          name: "Walt Disney World",
+          coords: [28.3772, -81.5707],
+          galleryKey: "disney",
+          desc: "Parques temáticos famosos en Orlando. Es uno de los lugares más conocidos de Florida."
+        },
+        {
+          name: "Kennedy Space Center",
+          coords: [28.5729, -80.6490],
+          galleryKey: "kennedy",
+          desc: "Centro espacial de la NASA en la costa este de Florida."
+        },
+        {
+          name: "Everglades National Park",
+          coords: [25.2866, -80.8987],
+          galleryKey: "evergladesMap",
+          desc: "Parque natural famoso por humedales, caimanes y tours en airboat."
+        },
+        {
+          name: "Key West",
+          coords: [24.5551, -81.7800],
+          galleryKey: "keywest",
+          desc: "Ciudad turística al sur de Florida, famosa por atardeceres, mar y ambiente relajado."
         }
-        seleccionadas.push(el.textContent);
-        el.style.background = "goldenrod";
-        el.style.color = "#000";
+      ];
+
+      const miamiLocations = [
+        {
+          name: "South Beach",
+          coords: [25.7907, -80.1300],
+          galleryKey: "southbeach",
+          desc: "Playa famosa de Miami Beach con ambiente turístico, hoteles y restaurantes."
+        },
+        {
+          name: "Ocean Drive",
+          coords: [25.7826, -80.1303],
+          galleryKey: "oceanDrive",
+          desc: "Avenida famosa por edificios Art Deco, luces y ambiente turístico."
+        },
+        {
+          name: "Wynwood",
+          coords: [25.8010, -80.1990],
+          galleryKey: "wynwood",
+          desc: "Zona de murales, arte urbano, galerías y fotos."
+        },
+        {
+          name: "Little Havana",
+          coords: [25.7650, -80.2197],
+          galleryKey: "littleHavana",
+          desc: "Barrio con cultura cubana y latina, comida, café y música."
+        },
+        {
+          name: "Bayside",
+          coords: [25.7783, -80.1869],
+          galleryKey: "bayside",
+          desc: "Centro comercial abierto frente al agua con comida, tiendas y tours en bote."
+        },
+        {
+          name: "Vizcaya",
+          coords: [25.7445, -80.2104],
+          galleryKey: "vizcaya",
+          desc: "Museo histórico con jardines elegantes y arquitectura llamativa."
+        },
+        {
+          name: "Biscayne Bay",
+          coords: [25.7324, -80.1626],
+          galleryKey: "biscayneBay",
+          desc: "Bahía popular para paseos en bote y vistas de Miami desde el agua."
+        },
+        {
+          name: "PAMM",
+          coords: [25.7860, -80.1863],
+          galleryKey: "pamm",
+          desc: "Museo de arte moderno y contemporáneo cerca del Downtown de Miami."
+        }
+      ];
+
+      floridaLocations.forEach(location => {
+        L.marker(location.coords, { icon: floridaIcon })
+          .addTo(floridaMap)
+          .bindPopup(buildPopup(location));
+      });
+
+      miamiLocations.forEach(location => {
+        L.marker(location.coords, { icon: miamiIcon })
+          .addTo(floridaMap)
+          .bindPopup(buildPopup(location));
+      });
+    }
+
+    function openImageViewer(galleryKey) {
+      const gallery = galleryPages[galleryKey];
+
+      if (!gallery) return;
+
+      const modal = document.getElementById("imageViewer");
+      const title = document.getElementById("imageViewerTitle");
+      const image = document.getElementById("viewerImage");
+      const loader = document.getElementById("imageLoader");
+      const counter = document.getElementById("imageCounter");
+
+      title.textContent = gallery.title;
+      image.classList.remove("show");
+      image.src = "";
+      loader.className = "image-loader";
+      loader.textContent = "Cargando imágenes...";
+      counter.textContent = "";
+
+      currentGalleryImages = gallery.images.map((url, index) => ({
+        url,
+        title: `${gallery.title} ${index + 1}`
+      }));
+
+      currentGalleryIndex = 0;
+      modal.classList.remove("hidden");
+      showGalleryImage();
+    }
+
+    function showGalleryImage(attempts = 0) {
+      const image = document.getElementById("viewerImage");
+      const loader = document.getElementById("imageLoader");
+      const counter = document.getElementById("imageCounter");
+
+      if (!currentGalleryImages.length) return;
+
+      if (attempts >= currentGalleryImages.length) {
+        image.classList.remove("show");
+        loader.className = "image-empty";
+        loader.textContent = "No se pudieron cargar imágenes disponibles para este lugar.";
+        counter.textContent = "";
+        return;
+      }
+
+      const currentItem = currentGalleryImages[currentGalleryIndex];
+
+      loader.textContent = "Cargando imagen...";
+      loader.className = "image-loader";
+      image.classList.remove("show");
+
+      image.onload = () => {
+        loader.textContent = "";
+        image.classList.add("show");
+        counter.textContent = `Imagen ${currentGalleryIndex + 1} de ${currentGalleryImages.length}`;
+      };
+
+      image.onerror = () => {
+        currentGalleryIndex = (currentGalleryIndex + 1) % currentGalleryImages.length;
+        showGalleryImage(attempts + 1);
+      };
+
+      image.src = currentItem.url;
+      image.alt = currentItem.title || "Imagen del lugar";
+      counter.textContent = `Imagen ${currentGalleryIndex + 1} de ${currentGalleryImages.length}`;
+    }
+
+    function nextImage() {
+      if (!currentGalleryImages.length) return;
+      currentGalleryIndex = (currentGalleryIndex + 1) % currentGalleryImages.length;
+      showGalleryImage();
+    }
+
+    function previousImage() {
+      if (!currentGalleryImages.length) return;
+      currentGalleryIndex =
+        (currentGalleryIndex - 1 + currentGalleryImages.length) % currentGalleryImages.length;
+      showGalleryImage();
+    }
+
+    function closeImageViewer() {
+      document.getElementById("imageViewer").classList.add("hidden");
+    }
+
+    function startQuiz() {
+      hideOptionalSections();
+      document.getElementById("quizSection").scrollIntoView({ behavior: "smooth" });
+
+      if (currentQuestion === -1) {
+        nextQuestion();
       }
     }
 
-    function validar2() {
-      let correcto = ["El","Tesoro","Perdido"];
-      let error = document.getElementById("error2");
-      if (JSON.stringify(seleccionadas.sort()) === JSON.stringify(correcto.sort())) {
-        document.getElementById("progreso").textContent = "";
-        document.getElementById("progreso").style.color = "lightgreen";
-        document.getElementById("hallazgo").style.display = "block";
-        error.textContent = "";
-        setTimeout(() => {
-          document.getElementById("acertijo2").classList.remove("active");
-          document.getElementById("acertijo3").classList.add("active");
-        }, 2500);
+    function nextQuestion() {
+      if (currentQuestion >= 0 && !answered) {
+        feedback.textContent = "Primero escoge una respuesta para continuar.";
+        return;
+      }
+
+      currentQuestion++;
+      answered = false;
+
+      if (currentQuestion >= questions.length) {
+        showResults();
+        return;
+      }
+
+      const item = questions[currentQuestion];
+
+      questionText.textContent = item.q;
+      questionCounter.textContent = `Pregunta ${currentQuestion + 1} de ${questions.length}`;
+      quizCategory.textContent = item.category;
+      feedback.textContent = "Escoge una respuesta.";
+      nextBtn.textContent = currentQuestion === questions.length - 1 ? "Ver resultado" : "Siguiente";
+
+      const shuffledOptions = shuffleArray([...item.options]);
+
+      answersEl.innerHTML = shuffledOptions.map(option => `
+        <button class="answer" onclick="selectAnswer(this, '${escapeString(option)}')">${option}</button>
+      `).join("");
+
+      updateProgress();
+    }
+
+    function escapeString(str) {
+      return str.replace(/'/g, "\\'");
+    }
+
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+
+      return array;
+    }
+
+    function selectAnswer(button, selected) {
+      if (answered) return;
+
+      answered = true;
+
+      const item = questions[currentQuestion];
+      const allButtons = [...document.querySelectorAll(".answer")];
+
+      allButtons.forEach(btn => {
+        if (btn.textContent === item.answer) {
+          btn.classList.add("correct");
+        }
+      });
+
+      if (selected === item.answer) {
+        score++;
+        feedback.textContent = `✅ Correcto. ${item.exp}`;
       } else {
-        error.textContent = "❌ Selección incorrecta.";
-        setTimeout(() => { error.textContent = ""; }, 2500);
+        button.classList.add("wrong");
+        feedback.textContent = `❌ No exactamente. La respuesta correcta es: ${item.answer}. ${item.exp}`;
+      }
+
+      updateProgress();
+    }
+
+    function updateProgress() {
+      const completed = Math.max(currentQuestion, 0) + (answered ? 1 : 0);
+      const percent = Math.min((completed / questions.length) * 100, 100);
+
+      progressBar.style.width = `${percent}%`;
+      scoreText.textContent = `Puntuación: ${score} / ${questions.length}`;
+    }
+
+    function showResults() {
+      quizContent.classList.add("hidden");
+      resultContent.classList.remove("hidden");
+
+      finalScore.textContent = `${score}/${questions.length}`;
+
+      if (score >= 13) {
+        resultMessage.textContent = "Excelente. Ya puedes hablar de Miami con bastante seguridad y detalles claros.";
+      } else if (score >= 10) {
+        resultMessage.textContent = "Muy bien. Repasa algunos lugares y datos curiosos para fortalecer las respuestas.";
+      } else if (score >= 7) {
+        resultMessage.textContent = "Vas bien, pero conviene repasar las tarjetas antes de practicar una entrevista.";
+      } else {
+        resultMessage.textContent = "Necesitas repasar con calma. Lee las frases fáciles y vuelve a intentarlo.";
       }
     }
 
-    // Acertijo 3
-    const simbolos = ["☀️","🌿","🕯️","⚔️","🧲","🦅","💧","❤️","🧭","🗝️","🪙"];
-    const ruedas = document.querySelectorAll(".rueda");
-    const solucion = ["🦅","🗝️","🌿"];
+    function resetQuiz() {
+      currentQuestion = -1;
+      score = 0;
+      answered = false;
 
-    function girar(index) {
-      let actual = simbolos.indexOf(ruedas[index].textContent);
-      let siguiente = (actual + 1) % simbolos.length;
-      ruedas[index].textContent = simbolos[siguiente];
+      quizContent.classList.remove("hidden");
+      resultContent.classList.add("hidden");
+
+      questionText.textContent = "Presiona comenzar para iniciar.";
+      questionCounter.textContent = "Pregunta 1";
+      quizCategory.textContent = "Miami";
+      answersEl.innerHTML = "";
+      feedback.textContent = "Cuando selecciones una respuesta, aquí verás la explicación.";
+      nextBtn.textContent = "Comenzar quiz";
+
+      updateProgress();
+      hideOptionalSections();
+      document.getElementById("quizSection").scrollIntoView({ behavior: "smooth" });
     }
 
-    function verificar() {
-  let intento = Array.from(ruedas).map(r => r.textContent);
-  if (JSON.stringify(intento) === JSON.stringify(solucion)) {
-    document.getElementById("mensaje").style.display = "block";
-    document.getElementById("estado").textContent = "";
-  } else {
-    document.getElementById("mensaje").style.display = "none";
-    document.getElementById("estado").textContent = "❌ Combinación incorrecta";
-    document.getElementById("estado").style.color = "red";
-  }
-}
+    renderFilters();
+    renderPlaces();
+    updateProgress();
   </script>
-
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
